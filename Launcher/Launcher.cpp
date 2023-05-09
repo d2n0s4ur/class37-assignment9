@@ -1,6 +1,55 @@
 ﻿#include <stdio.h>
 #include <Windows.h>
+#include <signal.h>
 
+#pragma comment (linker, "/INCLUDE:__tls_used") // use TLS
+#pragma comment (linker, "/INCLUDE:_pCallBacks") // pCallBacks val to linker
+
+// Launcher Debug Detect
+int is_running = 1;
+HANDLE hThread = NULL;
+
+// Client Infos
+STARTUPINFOA		StartupInfo;
+PROCESS_INFORMATION	ProcessInformation;
+DEBUG_EVENT         DebugEvent;
+
+__inline BOOL CheckDebugger()
+{
+    __asm {
+        mov eax, dword ptr fs : [0x30]
+        movzx eax, byte ptr ds : [eax + 0x02]
+    }
+}
+
+DWORD WINAPI debug_watchdog(void* arg)
+{
+    while (is_running)
+    {
+        if (CheckDebugger())
+        {
+            printf("Detect Debugger on Launcher!!\n");
+            ExitProcess(1);
+        }
+        Sleep(1);
+    }
+    ExitThread(0);
+}
+
+void NTAPI TLS_CALLBACK1(PVOID DllHandle, DWORD Reason, PVOID Reserved)
+{
+    if (Reason) // before main
+    {
+        // make watchdog thread
+        hThread = CreateThread(0, 0, debug_watchdog, &is_running, 0, 0);
+    }
+    else // end main
+        is_running = 0;
+}
+
+#pragma data_seg(".CRT$XLX")
+extern "C" PIMAGE_TLS_CALLBACK pCallBacks[] = { TLS_CALLBACK1, 0 };
+#pragma data_seg()
 
 DWORD OnCreateThreadDebugEvent(const LPDEBUG_EVENT DebugEv);
 DWORD OnCreateProcessDebugEvent(const LPDEBUG_EVENT DebugEv);
@@ -13,9 +62,10 @@ DWORD OnRipEvent(const LPDEBUG_EVENT DebugEv);
 
 void EnterDebugLoop(const LPDEBUG_EVENT DebugEv)
 {
-    DWORD dwContinueStatus = DBG_CONTINUE; // exception continuation 
+    DWORD   dwContinueStatus = DBG_CONTINUE; // exception continuation 
+    BOOL    isExit = FALSE;
 
-    for (;;)
+    while (!isExit)
     {
         // Wait for a debugging event to occur. The second parameter indicates
         // that the function does not return until a debugging event occurs. 
@@ -98,6 +148,7 @@ void EnterDebugLoop(const LPDEBUG_EVENT DebugEv)
             // Display the process's exit code. 
 
             dwContinueStatus = OnExitProcessDebugEvent(DebugEv);
+            isExit = TRUE;
             break;
 
         case LOAD_DLL_DEBUG_EVENT:
@@ -122,6 +173,7 @@ void EnterDebugLoop(const LPDEBUG_EVENT DebugEv)
 
         case RIP_EVENT:
             dwContinueStatus = OnRipEvent(DebugEv);
+            isExit = TRUE;
             break;
         }
         
@@ -203,16 +255,21 @@ DWORD OnOutputDebugStringEvent(const LPDEBUG_EVENT DebugEv)
     return (DBG_CONTINUE);
 }
 
-DWORD OnRipEvent(const LPDEBUG_EVENT DebugEv);
+DWORD OnRipEvent(const LPDEBUG_EVENT DebugEv)
+{
+    RIP_INFO* lpDebugInfo = NULL;
+
+    lpDebugInfo = (LPRIP_INFO)DebugEv;
+    printf("[log] RIP Error: [%d]\n", lpDebugInfo->dwError);
+
+    return (DBG_CONTINUE);
+}
 
 int	main(void)
 {
 	// Exec Client
 	char				programPath[] = "C:\\Users\\PC\\source\\repos\\assignment9\\Release\\client.exe";
 	char				args[] = "";
-	STARTUPINFOA		StartupInfo;
-	PROCESS_INFORMATION	ProcessInformation;
-    DEBUG_EVENT         DebugEvent;
 
 	memset(&StartupInfo, 0, sizeof(STARTUPINFOA));
 	memset(&ProcessInformation, 0, sizeof(PROCESS_INFORMATION));
@@ -230,5 +287,9 @@ int	main(void)
 	WaitForSingleObject(ProcessInformation.hProcess, INFINITE);
 	CloseHandle(ProcessInformation.hProcess);
 	CloseHandle(ProcessInformation.hThread);
+
+    // debug detection end
+    is_running = 0;
+
 	return (0);
 }
