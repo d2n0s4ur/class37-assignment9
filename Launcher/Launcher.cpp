@@ -203,7 +203,15 @@ DWORD OnOutputDebugStringEvent(const LPDEBUG_EVENT DebugEv)
     return (DBG_CONTINUE);
 }
 
-DWORD OnRipEvent(const LPDEBUG_EVENT DebugEv);
+DWORD OnRipEvent(const LPDEBUG_EVENT DebugEv)
+{
+    RIP_INFO* lpDebugInfo = NULL;
+
+    lpDebugInfo = (LPRIP_INFO)DebugEv;
+    printf("[log] RIP Error: [%d]\n", lpDebugInfo->dwError);
+
+    return (DBG_CONTINUE);
+}
 
 int	main(void)
 {
