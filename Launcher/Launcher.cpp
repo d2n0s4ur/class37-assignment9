@@ -23,7 +23,7 @@ void EnterDebugLoop(const LPDEBUG_EVENT DebugEv)
         WaitForDebugEvent(DebugEv, INFINITE);
 
         // Process the debugging event code. 
-        /*
+        
         switch (DebugEv->dwDebugEventCode)
         {
         case EXCEPTION_DEBUG_EVENT:
@@ -124,7 +124,7 @@ void EnterDebugLoop(const LPDEBUG_EVENT DebugEv)
             dwContinueStatus = OnRipEvent(DebugEv);
             break;
         }
-        */
+        
         // Resume executing the thread that reported the debugging event. 
 
         ContinueDebugEvent(DebugEv->dwProcessId,
@@ -138,16 +138,72 @@ DWORD OnCreateThreadDebugEvent(const LPDEBUG_EVENT DebugEv)
     CREATE_THREAD_DEBUG_INFO* lpDebugInfo = NULL;
 
     lpDebugInfo = (LPCREATE_THREAD_DEBUG_INFO)DebugEv;
-    printf("[log] New Thread Detected.\n");
+    printf("[log] New Thread Detected. Thread ID: %d\n", lpDebugInfo->hThread);
+
+    return (DBG_CONTINUE);
 }
 
-DWORD OnCreateProcessDebugEvent(const LPDEBUG_EVENT);
-DWORD OnExitThreadDebugEvent(const LPDEBUG_EVENT);
-DWORD OnExitProcessDebugEvent(const LPDEBUG_EVENT);
-DWORD OnLoadDllDebugEvent(const LPDEBUG_EVENT);
-DWORD OnUnloadDllDebugEvent(const LPDEBUG_EVENT);
-DWORD OnOutputDebugStringEvent(const LPDEBUG_EVENT);
-DWORD OnRipEvent(const LPDEBUG_EVENT);
+DWORD OnCreateProcessDebugEvent(const LPDEBUG_EVENT DebugEv)
+{
+    CREATE_PROCESS_DEBUG_INFO* lpDebugInfo = NULL;
+
+    lpDebugInfo = (LPCREATE_PROCESS_DEBUG_INFO)DebugEv;
+    printf("[log] New Process Detected. Process ID: %d\n", lpDebugInfo->hProcess);
+
+    return (DBG_CONTINUE);
+}
+
+DWORD OnExitThreadDebugEvent(const LPDEBUG_EVENT DebugEv)
+{
+    EXIT_THREAD_DEBUG_INFO* lpDebugInfo = NULL;
+
+    lpDebugInfo = (LPEXIT_THREAD_DEBUG_INFO)DebugEv;
+    printf("[log] Thread Exit Detected. Thread ID: %d\n", lpDebugInfo->dwExitCode);
+
+    return (DBG_CONTINUE);
+}
+
+DWORD OnExitProcessDebugEvent(const LPDEBUG_EVENT DebugEv)
+{
+    EXIT_PROCESS_DEBUG_INFO* lpDebugInfo = NULL;
+
+    lpDebugInfo = (LPEXIT_PROCESS_DEBUG_INFO)DebugEv;
+    printf("[log] Process Exit Detected. Process ID: %d\n", lpDebugInfo->dwExitCode);
+
+    return (DBG_CONTINUE);
+}
+
+DWORD OnLoadDllDebugEvent(const LPDEBUG_EVENT DebugEv)
+{
+    LOAD_DLL_DEBUG_INFO* lpDebugInfo = NULL;
+
+    lpDebugInfo = (LPLOAD_DLL_DEBUG_INFO)DebugEv;
+    printf("[log] DLL Loaded. DLL Handle: %d\n", lpDebugInfo->hFile);
+
+    return (DBG_CONTINUE);
+}
+
+DWORD OnUnloadDllDebugEvent(const LPDEBUG_EVENT DebugEv)
+{
+    UNLOAD_DLL_DEBUG_INFO* lpDebugInfo = NULL;
+
+    lpDebugInfo = (LPUNLOAD_DLL_DEBUG_INFO)DebugEv;
+    printf("[log] DLL Unloaded. DLL base address: %d\n", lpDebugInfo->lpBaseOfDll);
+
+    return (DBG_CONTINUE);
+}
+
+DWORD OnOutputDebugStringEvent(const LPDEBUG_EVENT DebugEv)
+{
+    OUTPUT_DEBUG_STRING_INFO* lpDebugInfo = NULL;
+
+    lpDebugInfo = (LPOUTPUT_DEBUG_STRING_INFO)DebugEv;
+    printf("[log] Debug String: [%s]\n", lpDebugInfo->lpDebugStringData);
+
+    return (DBG_CONTINUE);
+}
+
+DWORD OnRipEvent(const LPDEBUG_EVENT DebugEv);
 
 int	main(void)
 {
