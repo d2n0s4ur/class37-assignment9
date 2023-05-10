@@ -29,9 +29,14 @@ DWORD WINAPI debug_watchdog(void* arg)
         if (CheckDebugger())
         {
             printf("Detect Debugger on Launcher!!\n");
+            if (ProcessInformation.hProcess)
+            {
+                CloseHandle(ProcessInformation.hThread);
+                CloseHandle(ProcessInformation.hProcess);
+            }
             ExitProcess(1);
         }
-        Sleep(1);
+        Sleep(100);
     }
     ExitThread(0);
 }
@@ -271,10 +276,14 @@ int	main(void)
 	char				programPath[] = "C:\\Users\\PC\\source\\repos\\assignment9\\Release\\client.exe";
 	char				args[] = "";
 
-	memset(&StartupInfo, 0, sizeof(STARTUPINFOA));
-	memset(&ProcessInformation, 0, sizeof(PROCESS_INFORMATION));
+    if (CheckDebugger())
+    {
+        printf("Detect Debugger on Launcher!!\n");
+        return (1);
+    }
+
 	if (!CreateProcessA(programPath, args, NULL,  NULL, FALSE, 
-        NORMAL_PRIORITY_CLASS | CREATE_NEW_CONSOLE | DEBUG_PROCESS, 
+        NORMAL_PRIORITY_CLASS | CREATE_NEW_CONSOLE | DEBUG_PROCESS | DEBUG_ONLY_THIS_PROCESS, 
         NULL, NULL, &StartupInfo, &ProcessInformation))
 	{
 		printf("CreateProcessA() failed.: %lu\n", GetLastError());
@@ -285,11 +294,8 @@ int	main(void)
 
 	// end client
 	WaitForSingleObject(ProcessInformation.hProcess, INFINITE);
-	CloseHandle(ProcessInformation.hProcess);
 	CloseHandle(ProcessInformation.hThread);
-
-    // debug detection end
-    is_running = 0;
+    CloseHandle(ProcessInformation.hProcess);
 
 	return (0);
 }

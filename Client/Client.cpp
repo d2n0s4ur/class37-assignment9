@@ -4,12 +4,43 @@
 #include <TlHelp32.h>
 #include <Psapi.h>
 
+#pragma comment (linker, "/INCLUDE:__tls_used") // use TLS
+#pragma comment (linker, "/INCLUDE:_pCallBacks") // pCallBacks val to linker
+
+int is_running = 1;
+HANDLE hThread = NULL;
+
 __inline BOOL CheckDebugger()
 {
 	__asm {
 		mov eax, dword ptr fs : [0x30]
 		movzx eax, byte ptr ds : [eax + 0x02]
 	}
+}
+
+DWORD WINAPI debug_watchdog(void* arg)
+{
+	while (is_running)
+	{
+		if (!CheckDebugger())
+		{
+			printf("No debugger!\n");
+			ExitProcess(1);
+		}
+		Sleep(100);
+	}
+	ExitThread(0);
+}
+
+void NTAPI TLS_CALLBACK1(PVOID DllHandle, DWORD Reason, PVOID Reserved)
+{
+	if (Reason) // before main
+	{
+		// make watchdog thread
+		hThread = CreateThread(0, 0, debug_watchdog, NULL, 0, 0);
+	}
+	else
+		is_running = 0;
 }
 
 int CheckParentProcess()
@@ -56,6 +87,10 @@ int CheckParentProcess()
 	return (0);
 }
 
+#pragma data_seg(".CRT$XLX")
+extern "C" PIMAGE_TLS_CALLBACK pCallBacks[] = { TLS_CALLBACK1, 0 };
+#pragma data_seg()
+
 int	main(void)
 {
 	// check mother process
@@ -70,7 +105,7 @@ int	main(void)
 		printf("Not debugging!!\n");
 		return (1);
 	}
-	
+
 	char buffer[4096];
 	while (1)
 	{
